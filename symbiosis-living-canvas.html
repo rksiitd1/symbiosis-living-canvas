@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Symbiosis: The Living Canvas</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; }
+        canvas { display: block; }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="ecosystem"></canvas>
+    <div id="info">
+        <h2>Symbiosis: The Living Canvas</h2>
+        <p>Creatures: <span id="creatureCount">0</span></p>
+        <p>Plants: <span id="plantCount">0</span></p>
+        <p>Generation: <span id="generation">1</span></p>
+    </div>
+    <div id="controls">
+        <button id="addCreature">Add Creature</button>
+        <button id="addPlant">Add Plant</button>
+        <button id="togglePause">Pause/Resume</button>
+    </div>
+    <script>
+        const canvas = document.getElementById('ecosystem');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let creatures = [];
+        let plants = [];
+        let paused = false;
+        let generation = 1;
+
+        class Creature {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = Math.random() * 10 + 5;
+                this.speed = Math.random() * 2 + 1;
+                this.direction = Math.random() * Math.PI * 2;
+                this.energy = 100;
+                this.color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+                this.genes = {
+                    size: Math.random(),
+                    speed: Math.random(),
+                    efficiency: Math.random()
+                };
+            }
+
+            update() {
+                this.x += Math.cos(this.direction) * this.speed;
+                this.y += Math.sin(this.direction) * this.speed;
+                
+                if (this.x < 0 || this.x > canvas.width) this.direction = Math.PI - this.direction;
+                if (this.y < 0 || this.y > canvas.height) this.direction = -this.direction;
+
+                this.energy -= 0.1 * (1 - this.genes.efficiency);
+                if (this.energy <= 0) return false;
+
+                plants.forEach((plant, index) => {
+                    if (Math.hypot(this.x - plant.x, this.y - plant.y) < this.size + plant.size) {
+                        this.energy += plant.energy;
+                        plants.splice(index, 1);
+                    }
+                });
+
+                if (this.energy > 200 && Math.random() < 0.001) this.reproduce();
+
+                return true;
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            reproduce() {
+                const childGenes = {};
+                for (let gene in this.genes) {
+                    childGenes[gene] = this.genes[gene] + (Math.random() - 0.5) * 0.1;
+                    childGenes[gene] = Math.max(0, Math.min(1, childGenes[gene]));
+                }
+                const child = new Creature(this.x, this.y);
+                child.genes = childGenes;
+                child.color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+                creatures.push(child);
+                this.energy -= 100;
+            }
+        }
+
+        class Plant {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = Math.random() * 5 + 2;
+                this.energy = this.size * 10;
+                this.color = `hsl(${120 + Math.random() * 60}, 100%, 50%)`;
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function init() {
+            for (let i = 0; i < 20; i++) {
+                creatures.push(new Creature(Math.random() * canvas.width, Math.random() * canvas.height));
+            }
+            for (let i = 0; i < 100; i++) {
+                plants.push(new Plant(Math.random() * canvas.width, Math.random() * canvas.height));
+            }
+        }
+
+        function update() {
+            if (!paused) {
+                creatures = creatures.filter(creature => creature.update());
+                if (Math.random() < 0.05) plants.push(new Plant(Math.random() * canvas.width, Math.random() * canvas.height));
+                
+                if (creatures.length === 0) {
+                    generation++;
+                    init();
+                }
+            }
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            creatures.forEach(creature => creature.draw());
+            plants.forEach(plant => plant.draw());
+
+            document.getElementById('creatureCount').textContent = creatures.length;
+            document.getElementById('plantCount').textContent = plants.length;
+            document.getElementById('generation').textContent = generation;
+
+            requestAnimationFrame(update);
+        }
+
+        init();
+        update();
+
+        document.getElementById('addCreature').addEventListener('click', () => {
+            creatures.push(new Creature(Math.random() * canvas.width, Math.random() * canvas.height));
+        });
+
+        document.getElementById('addPlant').addEventListener('click', () => {
+            plants.push(new Plant(Math.random() * canvas.width, Math.random() * canvas.height));
+        });
+
+        document.getElementById('togglePause').addEventListener('click', () => {
+            paused = !paused;
+        });
+
+        canvas.addEventListener('click', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            creatures.push(new Creature(x, y));
+        });
+    </script>
+</body>
+</html>
